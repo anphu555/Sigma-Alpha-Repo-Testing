@@ -26,7 +26,7 @@ places_df['province'] = places_df['tags_list'].apply(lambda x: x[0] if len(x) > 
 places_df['feature_tags'] = places_df['tags_list'].apply(lambda x: x[1:] if len(x) > 1 else [])
 
 # Lưu lại file places đã xử lý (nếu cần dùng sau này)
-# places_df.to_csv('places_processed.csv', index=False)
+places_df.to_csv('places_processed.csv', index=False)
 print("Đã tách xong cột Province.")
 print(places_df[['id', 'province', 'feature_tags']].head())
 
@@ -82,18 +82,28 @@ for user_id in range(NUM_USERS):
     for idx in chosen_indices:
         place = places_df.iloc[idx]
         
-        # Điểm cơ bản: Trung bình 3.0 + Nhiễu ngẫu nhiên
-        score = 3.0 + np.random.normal(0, 0.5) 
+        # --- LOGIC CŨ (BỎ) ---
+        # score = 3.0 + np.random.normal(0, 0.5) 
+        # if place['province'] in fav_provinces: score += 1.0
+        # matches = set(fav_tags).intersection(set(place['feature_tags']))
+        # score += len(matches) * 0.5
         
-        # Tăng điểm nếu đúng Tỉnh User thích (+1.0 điểm)
-        if place['province'] in fav_provinces:
-            score += 1.0
-            
-        # Tăng điểm nếu đúng Tag User thích (+0.5 điểm mỗi tag trùng)
+        # --- LOGIC MỚI (MẠNH HƠN) ---
         matches = set(fav_tags).intersection(set(place['feature_tags']))
-        score += len(matches) * 0.5
+        is_prov_match = place['province'] in fav_provinces
         
-        # Giới hạn điểm từ 1 đến 5 và làm tròn
+        if len(matches) > 0:
+            # Nếu trúng Sở thích -> Điểm cực cao (4.5 - 5.5)
+            # Cộng thêm điểm nếu trúng cả Tỉnh
+            score = 4.5 + (0.5 if is_prov_match else 0) + np.random.normal(0, 0.2)
+        elif is_prov_match:
+            # Nếu chỉ trúng Tỉnh mà ko trúng Sở thích -> Điểm khá (3.5 - 4.5)
+            score = 3.5 + np.random.normal(0, 0.3)
+        else:
+            # Không trúng gì cả -> Điểm thấp (1.0 - 2.5)
+            score = 2.0 + np.random.normal(0, 0.5)
+            
+        # Clip và làm tròn
         rating = int(np.clip(round(score), 1, 5))
         
         user_data.append({
